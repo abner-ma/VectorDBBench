@@ -130,7 +130,8 @@ class AwsS3Reader(DatasetReader):
                 remote_file = pathlib.PurePosixPath(self.remote_root, dataset, file)
                 local_file = local_ds_root.joinpath(file)
 
-                if (not local_file.exists()) or (not self.validate_file(remote_file, local_file)):
+                # if (not local_file.exists()) or (not self.validate_file(remote_file, local_file)):
+                if (not local_file.exists()):
                     log.info(f"local file: {local_file} not match with remote: {remote_file}; add to downloading list")
                     downloads.append(remote_file)
 
