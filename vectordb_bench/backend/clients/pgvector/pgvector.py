@@ -61,6 +61,30 @@ class PgVector(VectorDB):
         self.cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
         self.conn.commit()
 
+        # Set hnsw.ef_search at database level once during initialization
+        # This only affects search queries, not insert or index creation operations
+        # This is done unconditionally to ensure the setting is applied even when --skip-drop-old --skip-load
+        # Extract hnsw.ef_search from session_param() instead of search_param()
+        ef_search_value = None
+        session_params = self.case_config.session_param()
+        for setting in session_params.get("session_options", []):
+            if setting.get("parameter", {}).get("setting_name") == "hnsw.ef_search":
+                ef_search_value = setting.get("parameter", {}).get("val")
+                break
+        
+        if ef_search_value is not None:
+            try:
+                self.cursor.execute(
+                    sql.SQL("ALTER DATABASE {} SET hnsw.ef_search TO {};").format(
+                        sql.Identifier(self.connect_config["dbname"]),
+                        ef_search_value,
+                    )
+                )
+                self.conn.commit()
+                log.info(f"Set hnsw.ef_search={ef_search_value} at database level for {self.connect_config['dbname']}")
+            except psycopg.Error as e:
+                log.warning(f"Failed to set hnsw.ef_search at database level: {e}. "
+                           f"Falling back to session-level SET in init().")
         log.info(f"{self.name} config values: {self.connect_config}\n{self.case_config}")
         if not any(
             (
