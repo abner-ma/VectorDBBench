@@ -1,3 +1,4 @@
+from ..backend.clients.adbpg.cli import AdbpgNova
 from ..backend.clients.alisql.cli import AliSQLHNSW
 from ..backend.clients.alloydb.cli import AlloyDBScaNN
 from ..backend.clients.aws_opensearch.cli import AWSOpenSearch
@@ -13,7 +14,13 @@ from ..backend.clients.elastic_cloud.cli import (
 )
 from ..backend.clients.endee.cli import Endee
 from ..backend.clients.hologres.cli import HologresHGraph
-from ..backend.clients.lancedb.cli import LanceDB
+from ..backend.clients.lancedb.cli import (
+    LanceDB,
+    LanceDBAutoIndex,
+    LanceDBIVFHNSWPQ,
+    LanceDBIVFHNSWSQ,
+    LanceDBIVFPQ,
+)
 from ..backend.clients.lindorm.cli import LindormHNSW, LindormIVFBQ, LindormIVFPQ
 from ..backend.clients.mariadb.cli import MariaDBHNSW
 from ..backend.clients.memorydb.cli import MemoryDB
@@ -48,6 +55,7 @@ from ..backend.clients.zvec.cli import Zvec
 from .batch_cli import BatchCli
 from .cli import cli
 
+cli.add_command(AdbpgNova)
 cli.add_command(PgVectorHNSW)
 cli.add_command(PgVectoRSHNSW)
 cli.add_command(PgVectoRSIVFFlat)
@@ -71,6 +79,10 @@ cli.add_command(CockroachDBCli)
 cli.add_command(Clickhouse)
 cli.add_command(Vespa)
 cli.add_command(LanceDB)
+cli.add_command(LanceDBAutoIndex)
+cli.add_command(LanceDBIVFPQ)
+cli.add_command(LanceDBIVFHNSWSQ)
+cli.add_command(LanceDBIVFHNSWPQ)
 cli.add_command(HologresHGraph)
 cli.add_command(QdrantCloud)
 cli.add_command(QdrantLocal)

@@ -60,12 +60,13 @@ All the database client supported
 | oceanbase                | `pip install vectordb-bench[oceanbase]`     |
 | hologres                 | `pip install vectordb-bench[hologres]`      |
 | tencent_es               | `pip install vectordb-bench[tencent_es]`    |
-| alisql                   | `pip install 'vectordb-bench[alisql]'`      |
+| alisql                   | `pip install vectordb-bench[alisql]`      |
 | polardb                  | `pip install vectordb-bench[polardb]`       |
 | doris                    | `pip install vectordb-bench[doris]`         |
 | zvec                     | `pip install vectordb-bench[zvec]`          |
 | endee                    | `pip install vectordb-bench[endee]`         |
 | lindorm                  | `pip install vectordb-bench[lindorm]`       |
+| adbpg                    | `pip install vectordb-bench[adbpg]`         |
 
 ### Run
 
@@ -259,6 +260,43 @@ Options:
   --quantization-type TEXT        which type of quantization to use valid values [fp32, fp16, bq]
   --help                          Show this message and exit.
   ```
+
+### Run awsopensearch serverless from command line
+
+OpenSearch Serverless (AOSS) is a serverless deployment option for Amazon OpenSearch Service. VDBBench supports AOSS with the `--serverless` flag, which uses AWS SigV4 authentication and automatically skips unsupported operations (cluster settings, force merge, manual refresh, warmup API).
+
+**Prerequisites:**
+- AWS credentials configured (via `~/.aws/credentials`, environment variables, or IAM role)
+- Serverless dependencies installed (included in the `opensearch` extra): `pip install 'vectordb-bench[opensearch]'`. This installs `opensearch-py`, `boto3`, and `requests-aws4auth`.
+- IAM identity policy allowing `aoss:APIAccessAll` on the collection
+- AOSS Data Access Policy granting index/collection permissions to the IAM principal
+
+**Example: Run performance test on OpenSearch Serverless**
+
+```shell
+vectordbbench awsopensearch --db-label aoss \
+  --serverless --aws-region us-east-1 \
+  --host <collection-id>.aoss.us-east-1.on.aws --port 443 \
+  --case-type Performance768D1M \
+  --m 16 --ef-construction 200 --ef-search 40 \
+  --number-of-shards 8 --number-of-replicas 0 \
+  --engine faiss --metric-type cosine \
+  --num-concurrency 80,100,120
+```
+
+OpenSearch Serverless-specific options:
+
+| Option | Description |
+|--------|-------------|
+| `--serverless` | Enable OpenSearch Serverless mode (uses AWS SigV4 auth) |
+| `--aws-region` | AWS region for the AOSS collection (default: `us-east-1`) |
+
+> **Notes:**
+> - `--user` and `--password` are not needed for Serverless mode
+> - `--engine` is accepted but ignored internally (AOSS manages the engine)
+> - `--force-merge-enabled`, `--refresh-interval`, `--flush-threshold-size`, and `--cb-threshold` are ignored for Serverless
+> - Data insertion uses smaller batch sizes (100) for Serverless API compatibility
+
 ### Run Elastic Cloud from command line
 
 Elastic Cloud supports multiple index types: HNSW, HNSW_INT8, HNSW_INT4, and HNSW_BBQ.
@@ -429,7 +467,8 @@ Execute tests for the index types: HGraph.
 NUM_PER_BATCH=10000 vectordbbench hologreshgraph --host Hologres_Endpoint --port 80 \
 --user ACCESS_ID --password ACCESS_KEY --database DATABASE_NAME \
 --m 64 --ef-construction 400 --case-type Performance768D10M \
---index-type HGraph --ef-search 400 --k 10 --num-concurrency 1,60,70,75,80,90,95,100,110,120
+--index-type HGraph --ef-search 400 --k 10 --num-concurrency 1,60,70,75,80,90,95,100,105,110,115,120,125,130 \
+--serial-cooldown 3
 ```
 
 To list the options for Hologres, execute `vectordbbench hologreshgraph --help`, The following are some Hologres-specific command-line options.
@@ -519,7 +558,7 @@ Lindorm supports index types: hnsw, ivfpq, or ivfbq.
 ```shell
 vectordbbench lindormhnsw --case-type Performance768D10M --index-name <index_name> --k 10 \
 --host <lindorm_host> --port <lindorm_port> --user <username> --password <password> --m 32 \
---ef-construction 400 --ef-search 150
+--ef-construction 400 --ef-search 150 --reorder-factor 2
 ```
 
 **Example: Run ivfpq index test**
@@ -553,6 +592,45 @@ To list the options for Lindorm, execute `vectordbbench lindormhnsw --help`, The
   --m INTEGER                     hnsw m  [required]
   --ef-construction INTEGER       hnsw ef-construction  [required]
   --ef-search INTEGER             hnsw ef-search  [required]
+  --reorder-factor INTEGER        reorder factor
+```
+
+### Run ADBPG (Aliyun AnalyticDB for PostgreSQL) from command line
+
+ADBPG Nova uses the fastann/Nova vector index engine with `USING ann` syntax.
+
+**Example: Run novamr index benchmark (BioASQ 1M, 1024-dim)**
+
+```shell
+vectordbbench adbpgnova --case-type Performance1024D1M --k 10 \
+--host <adbpg_host> --port 5432 --db-name postgres \
+--user-name <username> --password <password> \
+--algorithm novamr --hnsw-m 48 --ef-construction 600 \
+--ef-search 130 --max-scan-points 5000 --quantize-rescore-amp 2.0
+```
+
+**Example: Run from config file**
+
+```shell
+vectordbbench adbpgnova --config-file adbpg_bioasq1m_novamr.yml
+```
+
+To list the options for ADBPG, execute `vectordbbench adbpgnova --help`. The following are some ADBPG-specific command-line options.
+
+```text
+  --user-name TEXT                Db username  [required]
+  --password TEXT                 Postgres database password  [$POSTGRES_PASSWORD]
+  --host TEXT                     Db host  [required]
+  --port INTEGER                  Postgres database port  [default: 5432]
+  --db-name TEXT                  Db name  [required]
+  --algorithm TEXT                algorithm  [default: novamr]
+  --hnsw-m INTEGER                hnsw_m  [default: 16]
+  --ef-construction INTEGER       ef_construction  [default: 200]
+  --ef-search INTEGER             ef_search  [default: 100]
+  --max-scan-points INTEGER       max scan points  [default: 2000]
+  --quantize-rescore-amp FLOAT    fastann.quantize_rescore_amp  [default: 1.0]
+  --nova-adaptive-gamma FLOAT     fastann.nova_adaptive_gamma  [default: 0.0]
+  --auto-reduction/--no-auto-reduction  Index WITH auto_reduction=on  [default: False]
 ```
 
 ### Run PolarDB from command line
